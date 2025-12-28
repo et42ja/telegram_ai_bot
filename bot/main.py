@@ -11,22 +11,34 @@ from telegram.ext import (
 )
 from openai import OpenAI
 
+# ======================
 # Logging
+# ======================
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
 
+# ======================
+# قراءة التوكنات من Environment Variables
+# ======================
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-BOT_TOKEN = os.getenv("8428603103:AAGk9W2zJwsid_oLU3as3_ExQjr3AAp20Ec")
-OPENAI_API_KEY = os.getenv("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMmIxYzNmZWQtOTBkOS00M2UzLTgyY2MtMDY5YTM3OGRlYTU0IiwidHlwZSI6ImFwaV90b2tlbiJ9.QcMD2v27xCrgzb2jX3eQO28k4G10ucrsWAZXm549Ztw")
+# تحقق من وجود التوكنات
+if not BOT_TOKEN:
+    raise ValueError("❌ BOT_TOKEN is missing! Please add it in Railway Variables.")
+if not OPENAI_API_KEY:
+    raise ValueError("❌ OPENAI_API_KEY is missing! Please add it in Railway Variables.")
 
-print("BOT_TOKEN:", "Exists" if BOT_TOKEN else "Missing")
-print("OPENAI_API_KEY:", "Exists" if OPENAI_API_KEY else "Missing")
-
+# ======================
+# إعداد OpenAI Client
+# ======================
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-
+# ======================
+# Handlers
+# ======================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("🔍 ذكاء اصطناعي", callback_data="ai")],
@@ -66,10 +78,15 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             size="1024x1024"
         )
         await update.message.reply_photo(img.data[0].url)
+    else:
+        await update.message.reply_text("ℹ️ استخدم /start لعرض القائمة")
 
-
+# ======================
+# Main
+# ======================
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(buttons))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
@@ -79,4 +96,3 @@ def main():
 
 if name == "main":
     main()
-
