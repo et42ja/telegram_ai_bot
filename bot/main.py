@@ -18,14 +18,11 @@ logging.basicConfig(
 )
 
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")   
+BOT_TOKEN = os.getenv("8428603103:AAGk9W2zJwsid_oLU3as3_ExQjr3AAp20Ec")
+OPENAI_API_KEY = os.getenv("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMmIxYzNmZWQtOTBkOS00M2UzLTgyY2MtMDY5YTM3OGRlYTU0IiwidHlwZSI6ImFwaV90b2tlbiJ9.QcMD2v27xCrgzb2jX3eQO28k4G10ucrsWAZXm549Ztw")
 
-if not BOT_TOKEN:
-    raise ValueError("❌ BOT_TOKEN is missing")
-if not OPENAI_API_KEY:
-    raise ValueError("❌ OPENAI_API_KEY is missing")
-
+print("BOT_TOKEN:", "Exists" if BOT_TOKEN else "Missing")
+print("OPENAI_API_KEY:", "Exists" if OPENAI_API_KEY else "Missing")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -82,3 +79,4 @@ def main():
 
 if name == "main":
     main()
+
