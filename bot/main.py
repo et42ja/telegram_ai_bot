@@ -1,111 +1,109 @@
 import os
-from dotenv import load_dotenv
+import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+    filters
+)
 from openai import OpenAI
 
-# ------------------ تحميل المتغيرات ------------------
-load_dotenv()
+# ======================
+# Logging
+# ======================
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
 
+# ======================
+# TOKENS from Railway
+# ======================
 BOT_TOKEN = os.getenv("8428603103:AAGk9W2zJwsid_oLU3as3_ExQjr3AAp20Ec")
-OPENAI_KEY = os.getenv("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMmIxYzNmZWQtOTBkOS00M2UzLTgyY2MtMDY5YTM3OGRlYTU0IiwidHlwZSI6ImFwaV90b2tlbiJ9.QcMD2v27xCrgzb2jX3eQO28k4G10ucrsWAZXm549Ztw")
+OPENAI_API_KEY = os.getenv("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMmIxYzNmZWQtOTBkOS00M2UzLTgyY2MtMDY5YTM3OGRlYTU0IiwidHlwZSI6ImFwaV90b2tlbiJ9.QcMD2v27xCrgzb2jX3eQO28k4G10ucrsWAZXm549Ztw")
 
-client = OpenAI(api_key=OPENAI_KEY)
+if not BOT_TOKEN:
+    raise RuntimeError("8428603103:AAGk9W2zJwsid_oLU3as3_ExQjr3AAp20Ec")
 
-# ------------------ تخزين البيانات ------------------
-user_history = {}      # البحث السابق لكل مستخدم
-waiting_for_image = set()  # المستخدمين الذين طلبوا تعديل صور
+if not OPENAI_API_KEY:
+    raise RuntimeError("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMmIxYzNmZWQtOTBkOS00M2UzLTgyY2MtMDY5YTM3OGRlYTU0IiwidHlwZSI6ImFwaV90b2tlbiJ9.QcMD2v27xCrgzb2jX3eQO28k4G10ucrsWAZXm549Ztw")
 
-# ------------------ /start ------------------
+# ======================
+# OpenAI Client
+# ======================
+client = OpenAI(api_key=OPENAI_API_KEY)
+
+# ======================
+# Handlers
+# ======================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("📜 البحث السابق", callback_data="history")],
-        [InlineKeyboardButton("🎨 إنشاء / تعديل صور", callback_data="image")],
+        [InlineKeyboardButton("🔍 ذكاء اصطناعي", callback_data="ai")],
+        [InlineKeyboardButton("🎨 إنشاء صورة", callback_data="image")],
         [InlineKeyboardButton("👨‍💻 معلومات المطور", callback_data="dev")]
     ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        "أهلاً بك 👋\nاختر من القائمة:",
-        reply_markup=reply_markup
+        "🤖 أهلاً بك في بوت الذكاء الاصطناعي\nاختر من القائمة:",
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# ------------------ التعامل مع الأزرار ------------------
 async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    if query.data == "history":
-        history = user_history.get(query.from_user.id, [])
-        text = "\n".join(history[-5:]) if history else "لا يوجد بحث سابق."
-        await query.message.reply_text(f"📜 البحث السابق:\n{text}")
-
-    elif query.data == "dev":
-        await query.message.reply_text(
-            "👨‍💻 مطور البوت:\n"
-            "الاسم: جعفر\n"
-            "بوت ذكاء اصطناعي متقدم\n"
-            "📧 Telegram Bot Developer"
-        )
+    if query.data == "ai":
+        context.user_data["mode"] = "chat"
+        await query.edit_message_text("🧠 أرسل سؤالك")
 
     elif query.data == "image":
-        waiting_for_image.add(query.from_user.id)
-        await query.message.reply_text(
-            "🎨 أرسل الصورة الآن وسيتم تحليلها أو تعديلها بالذكاء الاصطناعي"
+        context.user_data["mode"] = "image"
+        await query.edit_message_text("🎨 أرسل وصف الصورة")
+
+    elif query.data == "dev":
+        await query.edit_message_text(
+            "👨‍💻 المطور: جعفر\n🇮🇶 العراق\n⚙️ Telegram AI Bot"
         )
 
-# ------------------ التعامل مع النصوص ------------------
-async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = update.message.from_user.id
-    text = update.message.text
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    mode = context.user_data.get("mode")
 
-    # حفظ البحث السابق
-    user_history.setdefault(uid, []).append(text)
+    if mode == "chat":
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "user", "content": update.message.text}
+            ]
+        )
+        await update.message.reply_text(
+            response.choices[0].message.content
+        )
 
-    # الرد من OpenAI
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": text}]
-    )
+    elif mode == "image":
+        img = client.images.generate(
+            model="gpt-image-1",
+            prompt=update.message.text,
+            size="1024x1024"
+        )
+        await update.message.reply_photo(img.data[0].url)
 
-    await update.message.reply_text(response.choices[0].message.content)
+    else:
+        await update.message.reply_text("ℹ️ استخدم /start")
 
-# ------------------ التعامل مع الصور ------------------
-async def image_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = update.message.from_user.id
+# ======================
+# Main
+# ======================
+def main():
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    if uid not in waiting_for_image:
-        return
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(buttons))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-    photo = update.message.photo[-1]
-    file = await photo.get_file()
-    image_url = file.file_path
+    print("✅ Bot started successfully")
+    app.run_polling()
 
-    waiting_for_image.remove(uid)
-
-    # إرسال الصورة إلى OpenAI لتحليلها
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "حلل هذه الصورة واذكر ما يمكن تحسينه"},
-                    {"type": "image_url", "image_url": {"url": image_url}}
-                ]
-            }
-        ]
-    )
-
-    await update.message.reply_text(
-        "🖼️ تحليل الصورة:\n" + response.choices[0].message.content
-    )
-
-# ------------------ تشغيل البوت ------------------
-app = ApplicationBuilder().token(BOT_TOKEN).build()
-
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CallbackQueryHandler(buttons))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
-app.add_handler(MessageHandler(filters.PHOTO, image_handler))
-
-app.run_polling()
+if name == "main":
+    main()
